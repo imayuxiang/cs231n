@@ -65,7 +65,13 @@ def sgd_momentum(w, dw, config=None):
     # TODO: Implement the momentum update formula. Store the updated value in #
     # the next_w variable. You should also use and update the velocity v.     #
     ###########################################################################
-    pass
+    
+    ###     v=μ∗v−αJ′(θ)
+    ###     θn+1=θn+v
+    v = config.get('momentum') * v - config.get('learning_rate') * dw
+    next_w = w + v
+    
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -88,7 +94,7 @@ def rmsprop(w, dw, config=None):
     - cache: Moving average of second moments of gradients.
     """
     if config is None: config = {}
-    config.setdefault('learning_rate', 1e-2)
+    config.setdefault('learning_rate', 1e-3)
     config.setdefault('decay_rate', 0.99)
     config.setdefault('epsilon', 1e-8)
     config.setdefault('cache', np.zeros_like(w))
@@ -99,7 +105,13 @@ def rmsprop(w, dw, config=None):
     # in the next_w variable. Don't forget to update cache value stored in    #
     # config['cache'].                                                        #
     ###########################################################################
-    pass
+    #####   G=γG+(1−γ)(J′(θ)**2)
+    #####   θn+1=θn−α⋅J′(θn) / sqrt(G+e)
+    
+ 
+    config['cache'] = config['decay_rate'] * config['cache'] + (1 - config['decay_rate'])* (dw ** 2)
+    next_w = w - config['learning_rate'] * dw / (np.sqrt(config['cache'] + config['epsilon']))                 
+   
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -139,7 +151,15 @@ def adam(w, dw, config=None):
     # NOTE: In order to match the reference output, please modify t _before_  #
     # using it in any calculations.                                           #
     ###########################################################################
-    pass
+    config['m'] = config['beta1'] * config['m'] + (1 - config['beta1']) * dw
+    config['v'] = config['beta2'] * config['v'] + (1 - config['beta2']) * (dw ** 2)
+    config['t'] += 1
+    
+    m_c = config['m'] / (1 - config['beta1'] ** config['t'])
+    v_c = config['v'] / (1 - config['beta2'] ** config['t'])
+    
+    next_w = w - config['learning_rate'] * m_c / np.sqrt(v_c + config['epsilon'])
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################

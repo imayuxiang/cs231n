@@ -20,12 +20,15 @@ def affine_forward(x, w, b):
     - out: output, of shape (N, M)
     - cache: (x, w, b)
     """
+   
     out = None
+    
+    
     ###########################################################################
     # TODO: Implement the affine forward pass. Store the result in out. You   #
     # will need to reshape the input into rows.                               #
     ###########################################################################
-    pass
+    out = x.reshape(x.shape[0], -1).dot(w) + b
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -54,7 +57,9 @@ def affine_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the affine backward pass.                               #
     ###########################################################################
-    pass
+    dw = np.dot(x.reshape(x.shape[0], -1).T, dout)
+    db = np.sum(dout, axis = 0) 
+    dx = np.dot(dout, w.T).reshape(x.shape)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -76,7 +81,7 @@ def relu_forward(x):
     ###########################################################################
     # TODO: Implement the ReLU forward pass.                                  #
     ###########################################################################
-    pass
+    out = np.maximum(0,x)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -99,7 +104,8 @@ def relu_backward(dout, cache):
     ###########################################################################
     # TODO: Implement the ReLU backward pass.                                 #
     ###########################################################################
-    pass
+    dx = dout
+    dx[x <= 0] = 0
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -149,10 +155,12 @@ def batchnorm_forward(x, gamma, beta, bn_param):
     momentum = bn_param.get('momentum', 0.9)
 
     N, D = x.shape
+
     running_mean = bn_param.get('running_mean', np.zeros(D, dtype=x.dtype))
     running_var = bn_param.get('running_var', np.zeros(D, dtype=x.dtype))
 
     out, cache = None, None
+    
     if mode == 'train':
         #######################################################################
         # TODO: Implement the training-time forward pass for batch norm.      #
@@ -175,7 +183,18 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # Referencing the original paper (https://arxiv.org/abs/1502.03167)   #
         # might prove to be helpful.                                          #
         #######################################################################
-        pass
+        x_mean = np.mean(x, axis=0, keepdims=True)
+        x_std = np.std(x, axis=0, keepdims = True)
+        x_mu = x - x_mean
+        inn_var = 1 /np.sqrt(x_std ** 2 + eps)
+        x_pri = x_mu * inn_var
+        out = gamma * x_pri + beta
+        
+        cache = (x, gamma, beta, x_mean, x_std, x_mu, inn_var, x_pri, eps)
+       
+       
+        running_mean = momentum * running_mean + (1 - momentum) * x_mean
+        running_var = momentum * running_var + (1 - momentum) * x_std
         #######################################################################
         #                           END OF YOUR CODE                          #
         #######################################################################
@@ -186,7 +205,7 @@ def batchnorm_forward(x, gamma, beta, bn_param):
         # then scale and shift the normalized data using gamma and beta.      #
         # Store the result in the out variable.                               #
         #######################################################################
-        pass
+        out = gamma * (x - running_mean) / np.sqrt(running_var **2 + eps)
         #######################################################################
         #                          END OF YOUR CODE                           #
         #######################################################################
@@ -224,7 +243,27 @@ def batchnorm_backward(dout, cache):
     # Referencing the original paper (https://arxiv.org/abs/1502.03167)       #
     # might prove to be helpful.                                              #
     ###########################################################################
-    pass
+    
+    x, gamma, beta, x_mean, x_std, x_mu, inn_var, x_pri, eps = cache
+    
+    m = dout.shape[0]
+    
+    dbeta = np.sum(dout, axis=0, keepdims = True)
+    dgamma = np.sum(x_pri * dout, axis=0, keepdims = True)
+    
+    dxpri = gamma * dout
+    
+    
+    #dx = (1. / m * inn_var) * (m*dxpri - np.sum(dxpri, axis=0) - x_pri*np.sum(dxpri*x_pri, axis=0))
+    #dvar = np.sum(dxpri * x_mu, axis=0) * -.5 * inn_var**3
+    #dmu = np.sum(dxpri * (-inn_var), axis=0) + dvar * np.mean(-2. * x_mu, axis=0)
+
+    #dx = (dxpri * inn_var) + (dvar * 2 * x_mu / m) + (dmu / m)
+    
+    dx = dxpri * inn_var +  (-1) * np.sum(dxpri * inn_var, axis=0)/ m + (np.sum(x_mu * dxpri, axis=0) * inn_var ** 3 * (-0.5)) *( x_mu * 2 / m  + 2 / m * np.sum(x_mu, axis=0) * (-1) / m)
+    
+    #dx = (1. / m * inn_var) * (m*dxpri - np.ones((x.shape))* np.sum(dout, axis=0) - x_pri*np.sum(x_pri * dout, axis=0))
+   
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -255,7 +294,23 @@ def batchnorm_backward_alt(dout, cache):
     # should be able to compute gradients with respect to the inputs in a     #
     # single statement; our implementation fits on a single 80-character line.#
     ###########################################################################
-    pass
+    x, gamma, beta, x_mean, x_std, x_mu, inn_var, x_pri, eps = cache
+    
+    m = dout.shape[0]
+    
+    dbeta = np.sum(dout, axis=0, keepdims = True)
+    dgamma = np.sum(x_pri * dout, axis=0, keepdims = True)
+    
+    dxpri = gamma * dout
+    
+    dvar = np.sum(dxpri * x_mu, axis=0) * -.5 * inn_var**3
+    dmu = np.sum(dxpri * (-inn_var), axis=0) + dvar * np.mean(-2. * x_mu, axis=0)
+
+    dvar1 = dvar * np.mean(-2. * x_mu, axis=0)
+    dvar2 = dvar * 2 * x_mu / m
+    
+    dx = (dxpri * inn_var) + (dvar * 2 * x_mu / m) + (dmu / m)
+    
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -297,7 +352,14 @@ def layernorm_forward(x, gamma, beta, ln_param):
     # transformations you could perform, that would enable you to copy over   #
     # the batch norm code and leave it almost unchanged?                      #
     ###########################################################################
-    pass
+    x_mean = np.mean(x, axis=0)
+    x_std = np.std(x, axis=0)
+    x_mu = x - x_mean
+    inn_var = 1 /np.sqrt(x_std ** 2 + eps)
+    x_pri = x_mu * inn_var
+    out = gamma * x_pri + beta
+        
+    cache = (x, gamma, beta, x_mean, x_std, x_mu, inn_var, x_pri, eps)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
@@ -328,7 +390,16 @@ def layernorm_backward(dout, cache):
     # implementation of batch normalization. The hints to the forward pass    #
     # still apply!                                                            #
     ###########################################################################
-    pass
+    x, gamma, beta, x_mean, x_std, x_mu, inn_var, x_pri, eps = cache
+    
+    m = dout.shape[0]
+    
+    dbeta = np.sum(dout, axis=0, keepdims = True)
+    dgamma = np.sum(x_pri * dout, axis=0, keepdims = True)
+    
+    dxpri = gamma * dout
+    
+    dx = dxpri * inn_var +  (-1) * np.sum(dxpri * inn_var, axis=0)/ m + (np.sum(x_mu * dxpri, axis=0) * inn_var ** 3 * (-0.5)) *( x_mu * 2 / m  + 2 / m * np.sum(x_mu, axis=0) * (-1) / m)
     ###########################################################################
     #                             END OF YOUR CODE                            #
     ###########################################################################
